@@ -1,0 +1,30 @@
+JSON in C
+
+
+Douglas Crockford
+douglas@crockford.com
+
+2016-11-11
+
+
+JSON is a light-weight, language independent, data interchange format.
+See http://www.JSON.org/
+
+JSON_checker is a Pushdown Automaton that very quickly determines if a JSON
+text is syntactically correct. It could be used to filter inputs to a system,
+or to verify that the outputs of a system are syntactically correct. It could
+be adapted to produce a very fast JSON parser.
+
+JSON_checker is made up of these files:
+
+    JSON_checker.c      The JSON_checker.
+    JSON_checker.h      The JSON_checker header file.
+
+    main.c              A sample application.
+
+Accessories:
+
+    utf8_to_utf16.c     A UTF-8 to UTF-16 converter.
+    utf8_to_utf16.h     The UTF-8 to UTF-16 converter header file.
+    utf8_decode.c       A UTF-8 decoder.
+    utf8_decode.h       The UTF-8 decoder header file.
