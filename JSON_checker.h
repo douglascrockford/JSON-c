@@ -13,6 +13,7 @@ typedef struct JSON_checker_struct {
     int depth;
     int top;
     int* stack;
+    int start_token; /* 1 before, 2 after, 3 both */
 } * JSON_checker;
 
 
