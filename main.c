@@ -17,14 +17,32 @@ int main(int argc, char* argv[]) {
 
     jc will contain a JSON_checker with a maximum depth of 20.
 */
+    int line_number = 1;
+    int character_position = 0;
     JSON_checker jc = new_JSON_checker(20);
     for (;;) {
         int next_char = getchar();
         if (next_char <= 0) {
             break;
         }
+        character_position += 1;
+        if (next_char == '\n') {
+            line_number++;
+            character_position = 0;
+        }
         if (!JSON_checker_char(jc, next_char)) {
-            fprintf(stderr, "JSON_checker_char: syntax error\n");
+            /* Got syntax error. Report it. */
+            if (next_char >= 0x20 
+                && next_char < 0x7f 
+                && next_char != '\'') {
+                fprintf(stderr,
+                    "JSON_checker_char:%d:%d syntax error at ('%c')",
+                    line_number, character_position, next_char);
+            } else {
+                fprintf(stderr,
+                    "JSON_checker_char:%d:%d syntax error at ('\\x%02x')",
+                    line_number, character_position, next_char);
+            }
             exit(1);
         }
     }
