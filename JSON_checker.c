@@ -169,7 +169,7 @@ static int state_transition_table[NR_STATES][NR_CLASSES] = {
 /*frac   FR*/ {__,__,__,__,__,__,__,__,__,__,__,__,__,__,FS,FS,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__},
 /*fracs  FS*/ {OK,OK,__,-8,__,-7,__,-3,__,__,__,__,__,__,FS,FS,__,__,__,__,E1,__,__,__,__,__,__,__,__,E1,__},
 /*e      E1*/ {__,__,__,__,__,__,__,__,__,__,__,E2,E2,__,E3,E3,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__},
-/*ex     E2*/ {__,__,__,__,__,__,__,__,__,__,__,__,__,__,E3,E3,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__},
+/*e[+|-] E2*/ {__,__,__,__,__,__,__,__,__,__,__,__,__,__,E3,E3,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__},
 /*exp    E3*/ {OK,OK,__,-8,__,-7,__,-3,__,__,__,__,__,__,E3,E3,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__},
 /*tr     T1*/ {__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,T2,__,__,__,__,__,__},
 /*tru    T2*/ {__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,__,T3,__,__,__},
@@ -268,6 +268,7 @@ new_JSON_checker(int depth)
     jc->depth = depth;
     jc->top = -1;
     jc->stack = (int*)calloc(depth, sizeof(int));
+    jc->start_token = 0;
     push(jc, MODE_DONE);
     return jc;
 }
@@ -305,14 +306,97 @@ JSON_checker_char(JSON_checker jc, int next_char)
 */
     next_state = state_transition_table[jc->state][next_class];
     if (next_state >= 0) {
-/*
-    Change the state.
-*/
-        jc->state = next_state;
+        if (jc->state != next_state) {
+            /* 
+               Determine when the token starts. On state change,
+               the default is this character starts the token.
+            */
+            jc->start_token = 1;
+
+            switch (next_state) {
+                case ST:
+                    if (jc->state == U4 || jc->state==ES) {
+                        /* Continue a string */
+                        jc->start_token = 0;
+                    }
+                break;
+
+                case MI:
+                case ZE:
+                case IN:
+                case FR:
+                case FS:
+                case E1:
+                case E2:
+                case E3:
+                    if (jc->state == MI
+                     || jc->state==ZE
+                     || jc->state==IN
+                     || jc->state==FR
+                     || jc->state==FS
+                     || jc->state==E1
+                     || jc->state==E2
+                     ) {
+                        /* Continue a number */
+                        jc->start_token = 0;
+                    }
+                break;
+
+                case U1:
+                case U2:
+                case U3:
+                case U4:
+                    /* Continue a \u escape */
+                    jc->start_token = 0;
+                break;
+
+                case T2:
+                case T3:
+                case F1:
+                case F2:
+                case F3:
+                case F4:
+                case N2:
+                case N3:
+                case ES:
+                    /* Continue a reserved word*/
+                    jc->start_token = 0;
+                break;
+
+                case OK:
+                    if (jc->state == T3
+                        || jc->state == F4
+                        || jc->state == N3) {
+                        /* End a reserved word */
+                        jc->start_token = 2;
+                    } else {
+                        /* End something else, like a number. */
+                        jc->start_token = 3;
+                    }
+                break;
+
+                default:
+                break;
+            }
+
+            /*
+                Change the state.
+            */
+            jc->state = next_state;
+        } else { /* State stays the same */
+            jc->start_token = 0;
+        }
+
 /*
     Or perform one of the actions.
 */
     } else {
+        /* 
+           Determine when the token starts. On actions,
+           the default is this character is a token and
+           the next character starts another.
+        */
+        jc->start_token = 3;
         switch (next_state) {
 /* empty } */
         case -9:
@@ -351,6 +435,8 @@ JSON_checker_char(JSON_checker jc, int next_char)
             break;
 
 /* " */ case -4:
+            /* Token starts after this one */
+            jc->start_token = 2; 
             switch (jc->stack[jc->top]) {
             case MODE_KEY:
                 jc->state = CO;
